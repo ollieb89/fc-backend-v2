@@ -1,0 +1,12 @@
+<!-- financial_dashboard/templates/financial_dashboard/index.html -->
+{% extends 'financial_dashboard/base.html' %}
+
+{% block title %}Home - Financial Dashboard{% endblock %}
+
+{% block content %}
+    <div class="text-center">
+        <h1>Welcome to Your Financial Dashboard</h1>
+        <p>This is the home page. Use the navigation menu to view your dashboard and manage your financial data.</p>
+        <a href="{% url 'dashboard' %}" class="btn btn-primary">Go to Dashboard</a>
+    </div>
+{% endblock %}

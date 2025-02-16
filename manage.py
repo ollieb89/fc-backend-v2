@@ -5,6 +5,7 @@ import sys
 
 from dotenv import load_dotenv
 
+sys.setrecursionlimit(3000)
 
 def main():
     """Run administrative tasks."""
@@ -16,8 +17,8 @@ def main():
         load_dotenv('./.env')
 
     # When running on Azure App Service you should use the production settings.
-    settings_module = "fc-backend-v2.production" if 'WEBSITE_HOSTNAME' in os.environ else 'fc-backend-v2.settings'
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'fc-backend-v2.settings')
+    settings_module = "fc_backend_v2.production" if 'WEBSITE_HOSTNAME' in os.environ else 'fc_backend_v2.settings'
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'fc_backend_v2.settings')
 
     try:
         from django.core.management import execute_from_command_line

@@ -1,0 +1,16 @@
+/* financial_dashboard/static/financial_dashboard/css/style.css */
+
+body {
+    padding-top: 70px;
+    font-family: Arial, sans-serif;
+}
+
+h1, h2 {
+    color: #333;
+}
+
+footer {
+    background-color: #f8f9fa;
+    margin-top: 20px;
+    padding: 20px 0;
+}
