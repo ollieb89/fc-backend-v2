@@ -120,8 +120,7 @@ CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": os.environ.get(
-            "CACHELOCATION",
-            "rediss://:Wnv1W1c0lKpaPDsRfwp0WYhJfdG2keIkOAzCaJPPWZs=@fc-backend-v2-dev-g5yhc6fhqa5pa-cache.redis.cache.windows.net:6380/0"
+            "CACHELOCATION"
         ),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
