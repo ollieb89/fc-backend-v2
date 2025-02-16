@@ -131,3 +131,5 @@ dmypy.json
 .azure
 
 /workspaces/fc-backend-v2/.devcontainer/.env
+
+.env
