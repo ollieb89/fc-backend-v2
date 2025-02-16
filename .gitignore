@@ -129,3 +129,5 @@ dmypy.json
 .pyre/
 
 .azure
+
+/workspaces/fc-backend-v2/.devcontainer/.env
