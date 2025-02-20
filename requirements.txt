@@ -19,7 +19,7 @@ postgres==4.0
 propcache==0.2.1
 psycopg==3.2.4
 psycopg-binary==3.2.4
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.10
 psycopg2-pool==1.2
 pycryptodome==3.21.0
 python-binance==1.0.27
