@@ -2,12 +2,13 @@
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, permissions, authentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 import logging
-from binance.client import Client  # Make sure you have installed python-binance
+from binance.client import Client
 from rest_framework import viewsets
+from django.contrib.auth import get_user_model
 from .models import (
-    User,
     FinancialInstitution,
     UserAccount,
     Transaction,
@@ -36,82 +37,158 @@ from .serializers import (
     APIConnectionSerializer,
     MLModelSerializer,
 )
+from rest_framework.decorators import action
 
-class UserViewSet(viewsets.ModelViewSet):
+logger = logging.getLogger(__name__)
+User = get_user_model()
+
+# Common ViewSet configuration for frontend-ready APIs
+class FrontendReadyViewSet(viewsets.ModelViewSet):
+    authentication_classes = [JWTAuthentication, authentication.SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None  # Set to your preferred pagination class
+
+    def list(self, request, *args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+        return Response({
+            'success': True,
+            'data': response.data,
+            'error': None
+        })
+
+    def retrieve(self, request, *args, **kwargs):
+        response = super().retrieve(request, *args, **kwargs)
+        return Response({
+            'success': True,
+            'data': response.data,
+            'error': None
+        })
+
+    def handle_exception(self, exc):
+        response = super().handle_exception(exc)
+        return Response({
+            'success': False,
+            'data': None,
+            'error': {
+                'code': response.status_code,
+                'message': str(exc)
+            }
+        }, status=response.status_code)
+
+# Modified ViewSets with frontend-friendly responses
+class UserViewSet(FrontendReadyViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
-class FinancialInstitutionViewSet(viewsets.ModelViewSet):
+    @action(detail=False, methods=['GET'])
+    def me(self, request):
+        serializer = self.get_serializer(request.user)
+        return Response({
+            'success': True,
+            'data': serializer.data,
+            'error': None
+        })
+
+class FinancialInstitutionViewSet(FrontendReadyViewSet):
     queryset = FinancialInstitution.objects.all()
     serializer_class = FinancialInstitutionSerializer
 
-class UserAccountViewSet(viewsets.ModelViewSet):
+class UserAccountViewSet(FrontendReadyViewSet):
     queryset = UserAccount.objects.all()
     serializer_class = UserAccountSerializer
 
-class TransactionViewSet(viewsets.ModelViewSet):
+    def get_queryset(self):
+        return self.queryset.filter(user=self.request.user)
+
+class TransactionViewSet(FrontendReadyViewSet):
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
+    filterset_fields = ['account', 'category', 'date']
 
-class CategoryViewSet(viewsets.ModelViewSet):
+    def get_queryset(self):
+        return self.queryset.filter(account__user=self.request.user)
+
+class CategoryViewSet(FrontendReadyViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
-class BudgetViewSet(viewsets.ModelViewSet):
+class BudgetViewSet(FrontendReadyViewSet):
     queryset = Budget.objects.all()
     serializer_class = BudgetSerializer
 
-class InvestmentHoldingViewSet(viewsets.ModelViewSet):
+class InvestmentHoldingViewSet(FrontendReadyViewSet):
     queryset = InvestmentHolding.objects.all()
     serializer_class = InvestmentHoldingSerializer
 
-class CryptoWalletViewSet(viewsets.ModelViewSet):
+class CryptoWalletViewSet(FrontendReadyViewSet):
     queryset = CryptoWallet.objects.all()
     serializer_class = CryptoWalletSerializer
 
-class AIInsightViewSet(viewsets.ModelViewSet):
+class AIInsightViewSet(FrontendReadyViewSet):
     queryset = AIInsight.objects.all()
     serializer_class = AIInsightSerializer
 
-class NotificationViewSet(viewsets.ModelViewSet):
+class NotificationViewSet(FrontendReadyViewSet):
     queryset = Notification.objects.all()
     serializer_class = NotificationSerializer
 
-class AuditLogViewSet(viewsets.ModelViewSet):
+class AuditLogViewSet(FrontendReadyViewSet):
     queryset = AuditLog.objects.all()
     serializer_class = AuditLogSerializer
 
-class APIConnectionViewSet(viewsets.ModelViewSet):
+class APIConnectionViewSet(FrontendReadyViewSet):
     queryset = APIConnection.objects.all()
     serializer_class = APIConnectionSerializer
 
-class MLModelViewSet(viewsets.ModelViewSet):
+class MLModelViewSet(FrontendReadyViewSet):
     queryset = MLModel.objects.all()
     serializer_class = MLModelSerializer
 
 class BinanceManualLoginAPIView(APIView):
-    """
-    API endpoint that accepts Binance API credentials (api_key and api_secret)
-    via POST, validates them by retrieving account info, and returns the data in JSON.
-    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, format=None):
+        """
+        Modified to include user association and error handling for frontend
+        """
         api_key = request.data.get('api_key')
         api_secret = request.data.get('api_secret')
+        
         if not api_key or not api_secret:
-            return Response(
-                {"error": "Both 'api_key' and 'api_secret' are required."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({
+                'success': False,
+                'data': None,
+                'error': {'message': 'Both API key and secret are required'}
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         try:
-            # Initialize the Binance client with provided credentials
             client = Client(api_key, api_secret)
-            # Retrieve account information from Binance
             account_info = client.get_account()
-            return Response({"account_info": account_info}, status=status.HTTP_200_OK)
-        except Exception as e:
-            logger.exception("Error validating Binance API credentials")
-            return Response(
-                {"error": f"Error validating credentials: {str(e)}"},
-                status=status.HTTP_400_BAD_REQUEST
+            
+            # Store the API connection (example implementation)
+            APIConnection.objects.update_or_create(
+                user=request.user,
+                service_name='binance',
+                defaults={'api_key': api_key, 'api_secret': api_secret}
             )
+
+            return Response({
+                'success': True,
+                'data': {
+                    'account_info': account_info,
+                    'message': 'Binance connection successful'
+                },
+                'error': None
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Binance connection error: {str(e)}", exc_info=True)
+            return Response({
+                'success': False,
+                'data': None,
+                'error': {
+                    'message': 'Failed to connect to Binance',
+                    'details': str(e)
+                }
+            }, status=status.HTTP_400_BAD_REQUEST)

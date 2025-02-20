@@ -1,5 +1,3 @@
-# financial_dashboard/models.py
-
 import uuid
 from django.db import models
 from django.utils import timezone
@@ -11,13 +9,14 @@ class User(models.Model):
     password_hash = models.CharField(max_length=255)
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
-    created_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)  # Automatically set on creation
     last_login = models.DateTimeField(null=True, blank=True)
     subscription_plan = models.CharField(max_length=50, blank=True)
     timezone = models.CharField(max_length=50, blank=True)
     two_factor_enabled = models.BooleanField(default=False)
     profile_image_url = models.URLField(blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)  # Add is_active field
 
     class Meta:
         db_table = 'users'
@@ -57,12 +56,15 @@ class UserAccount(models.Model):
     currency = models.CharField(max_length=3)
     balance_current = models.DecimalField(max_digits=18, decimal_places=8)
     balance_available = models.DecimalField(max_digits=18, decimal_places=8, null=True, blank=True)
-    last_updated = models.DateTimeField(default=timezone.now)
+    last_updated = models.DateTimeField(auto_now=True)  # Automatically update on each save
     is_hidden = models.BooleanField(default=False)
     plaid_item_id = models.CharField(max_length=255, blank=True)
 
     class Meta:
         db_table = 'user_accounts'
+        indexes = [
+            models.Index(fields=['user']),  # Add index for user field
+        ]
 
     def __str__(self):
         return self.account_name
@@ -79,7 +81,7 @@ class Transaction(models.Model):
     pending = models.BooleanField(default=False)
     description = models.TextField()
     merchant_name = models.CharField(max_length=255, blank=True)
-    category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True, blank=True)
+    category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions')
     location = models.CharField(max_length=255, blank=True)
     payment_channel = models.CharField(max_length=50, blank=True)  # online, in-store, etc.
     transaction_type = models.CharField(max_length=10)  # debit or credit
@@ -89,6 +91,7 @@ class Transaction(models.Model):
         db_table = 'transactions'
         indexes = [
             models.Index(fields=['user', 'date']),
+            models.Index(fields=['account']),  # Add index for account field
         ]
 
     def __str__(self):
@@ -99,7 +102,7 @@ class Transaction(models.Model):
 class Category(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
-    parent_category = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL)
+    parent_category = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='subcategories')
     is_custom = models.BooleanField(default=False)
     color_code = models.CharField(max_length=20, blank=True)
     icon_name = models.CharField(max_length=50, blank=True)
@@ -128,6 +131,10 @@ class Budget(models.Model):
 
     class Meta:
         db_table = 'budgets'
+        indexes = [
+            models.Index(fields=['user']),  # Add index for user field
+            models.Index(fields=['category']),  # Add index for category field
+        ]
 
     def __str__(self):
         return f"Budget for {self.user} - {self.category}"
@@ -150,6 +157,10 @@ class InvestmentHolding(models.Model):
 
     class Meta:
         db_table = 'investment_holdings'
+        indexes = [
+            models.Index(fields=['user']),  # Add index for user field
+            models.Index(fields=['account']),  # Add index for account field
+        ]
 
     def __str__(self):
         return self.symbol
@@ -161,14 +172,17 @@ class CryptoWallet(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='crypto_wallets')
     exchange = models.ForeignKey(FinancialInstitution, on_delete=models.CASCADE, related_name='crypto_wallets')
     public_address = models.CharField(max_length=255)
-    private_key_hash = models.CharField(max_length=255)
+    private_key_hash = models.CharField(max_length=255)  # Ensure strong hashing algorithm is used
     coin_type = models.CharField(max_length=10)
     balance = models.DecimalField(max_digits=18, decimal_places=8)
-    last_updated = models.DateTimeField(default=timezone.now)
+    last_updated = models.DateTimeField(auto_now=True)  # Automatically update on each save
     is_hot_wallet = models.BooleanField(default=True)
 
     class Meta:
         db_table = 'crypto_wallets'
+        indexes = [
+            models.Index(fields=['user']),  # Add index for user field
+        ]
 
     def __str__(self):
         return f"{self.coin_type} Wallet for {self.user}"
@@ -178,7 +192,7 @@ class CryptoWallet(models.Model):
 class AIInsight(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ai_insights')
-    generated_at = models.DateTimeField(default=timezone.now)
+    generated_at = models.DateTimeField(auto_now_add=True)  # Automatically set on creation
     insight_type = models.CharField(max_length=50)  # spending, investment, debt, etc.
     content = models.TextField()
     confidence_score = models.DecimalField(max_digits=5, decimal_places=2)
@@ -187,9 +201,13 @@ class AIInsight(models.Model):
     linked_transaction = models.ForeignKey(Transaction, null=True, blank=True, on_delete=models.SET_NULL, related_name='insights')
     status = models.CharField(max_length=20)  # implemented, dismissed, etc.
     feedback_score = models.IntegerField(null=True, blank=True)
+    last_modified = models.DateTimeField(auto_now=True)  # Add last_modified field
 
     class Meta:
         db_table = 'ai_insights'
+        indexes = [
+            models.Index(fields=['user']),  # Add index for user field
+        ]
 
     def __str__(self):
         return f"AI Insight for {self.user}"
@@ -199,7 +217,7 @@ class AIInsight(models.Model):
 class Notification(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
-    created_at = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)  # Automatically set on creation
     type = models.CharField(max_length=20)  # budget_alert, security, insight, etc.
     content = models.TextField()
     is_read = models.BooleanField(default=False)
@@ -209,6 +227,9 @@ class Notification(models.Model):
 
     class Meta:
         db_table = 'notifications'
+        indexes = [
+            models.Index(fields=['user']),  # Add index for user field
+        ]
 
     def __str__(self):
         return f"Notification for {self.user}"
@@ -220,7 +241,7 @@ class AuditLog(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='audit_logs')
     ip_address = models.GenericIPAddressField()
     event_type = models.CharField(max_length=50)
-    event_timestamp = models.DateTimeField(default=timezone.now)
+    event_timestamp = models.DateTimeField(auto_now_add=True)  # Automatically set on creation
     affected_table = models.CharField(max_length=100, blank=True)
     record_id = models.UUIDField(null=True, blank=True)
     before_state = models.JSONField(null=True, blank=True)
@@ -229,6 +250,9 @@ class AuditLog(models.Model):
 
     class Meta:
         db_table = 'audit_logs'
+        indexes = [
+            models.Index(fields=['user']),  # Add index for user field
+        ]
 
     def __str__(self):
         return f"Audit Log for {self.user}"
@@ -244,9 +268,13 @@ class APIConnection(models.Model):
     consent_expiry = models.DateTimeField(null=True, blank=True)
     last_successful_sync = models.DateTimeField(null=True, blank=True)
     error_count = models.IntegerField(default=0)
+    last_modified = models.DateTimeField(auto_now=True)  # Add last_modified field
 
     class Meta:
         db_table = 'api_connections'
+        indexes = [
+            models.Index(fields=['user']),  # Add index for user field
+        ]
 
     def __str__(self):
         return f"API Connection for {self.user}"
@@ -259,7 +287,7 @@ class MLModel(models.Model):
     version = models.CharField(max_length=20)
     training_data_range = models.CharField(max_length=50)  # alternatively, you could use a DateRangeField if available
     accuracy_score = models.DecimalField(max_digits=5, decimal_places=2)
-    deployed_at = models.DateTimeField(default=timezone.now)
+    deployed_at = models.DateTimeField(auto_now_add=True)  # Automatically set on creation
     active = models.BooleanField(default=True)
 
     class Meta:

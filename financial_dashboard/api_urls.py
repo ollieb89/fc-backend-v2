@@ -21,23 +21,23 @@ from .api_views import (
 from .views import binance_login, binance_callback
 
 router = routers.DefaultRouter()
-router.register(r'users', UserViewSet)
-router.register(r'financial_institutions', FinancialInstitutionViewSet)
-router.register(r'user_accounts', UserAccountViewSet)
-router.register(r'transactions', TransactionViewSet)
-router.register(r'categories', CategoryViewSet)
-router.register(r'budgets', BudgetViewSet)
-router.register(r'investment_holdings', InvestmentHoldingViewSet)
-router.register(r'crypto_wallets', CryptoWalletViewSet)
-router.register(r'ai_insights', AIInsightViewSet)
-router.register(r'notifications', NotificationViewSet)
-router.register(r'audit_logs', AuditLogViewSet)
-router.register(r'api_connections', APIConnectionViewSet)
-router.register(r'ml_models', MLModelViewSet)
+router.register(r'users', UserViewSet, basename='user')
+router.register(r'financial-institutions', FinancialInstitutionViewSet, basename='financial-institution')
+router.register(r'user-accounts', UserAccountViewSet, basename='user-account')
+router.register(r'transactions', TransactionViewSet, basename='transaction')
+router.register(r'categories', CategoryViewSet, basename='category')
+router.register(r'budgets', BudgetViewSet, basename='budget')
+router.register(r'investment-holdings', InvestmentHoldingViewSet, basename='investment-holding')
+router.register(r'crypto-wallets', CryptoWalletViewSet, basename='crypto-wallet')
+router.register(r'ai-insights', AIInsightViewSet, basename='ai-insight')
+router.register(r'notifications', NotificationViewSet, basename='notification')
+router.register(r'audit-logs', AuditLogViewSet, basename='audit-log')
+router.register(r'api-connections', APIConnectionViewSet, basename='api-connection')
+router.register(r'ml-models', MLModelViewSet, basename='ml-model')
 
 urlpatterns = [
     path('binance/manual-login/', BinanceManualLoginAPIView.as_view(), name='binance-manual-login'),
     path('binance/login/', binance_login, name='binance-login'),
     path('binance/callback/', binance_callback, name='binance-callback'),
-    path('', include(router.urls)),
+    path('', include(router.urls)),  # Keep this at the end
 ]
